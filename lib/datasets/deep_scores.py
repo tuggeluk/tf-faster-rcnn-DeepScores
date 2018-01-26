@@ -2,13 +2,14 @@
 # Fast R-CNN
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Ismail Elezi, based on Ross Girshick and Xinlei Chen's code for pascal_voc dataset
+# Written by Ismail Elezi and Lukas Tuggener based on Ross Girshick and Xinlei Chen's code for pascal_voc dataset
 # --------------------------------------------------------
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import os
+import pandas as pa
 from datasets.imdb import imdb
 import datasets.ds_utils as ds_utils
 import xml.etree.ElementTree as ET
@@ -23,29 +24,20 @@ from datasets.voc_eval import voc_eval
 from model.config import cfg
 
 
-class musical(imdb):
+# export this to cfg later
+max_images = 2000
+
+
+class deep_scores(imdb):
   def __init__(self, image_set, year, devkit_path=None):
-    imdb.__init__(self, 'musical_' + year + '_' + image_set)
+    imdb.__init__(self, 'DeepScores' + year + '_' + image_set)
     self._year = year
     self._image_set = image_set
     self._devkit_path = self._get_default_path() if devkit_path is None \
       else devkit_path
-    self._data_path = os.path.join(self._devkit_path, 'musical' + self._year)
+    self._data_path = os.path.join(self._devkit_path, 'segmentation_detection')
 
-    self._classes = ('background', 'Accidental_-1', 'Accidental_-1f2', 'Clef_treble', 'Dots_1', 'DynamicText_f',
-                'DynamicText_p', 'Flag_flags.d4', 'Flag_flags.u3', 'TimeSignature_ 44', 'Accidental_0', 'Accidental_1',
-                'Accidental_1f2', 'Clef_bass', 'Clef_tenor', 'DynamicText_ff', 'DynamicText_fff', 'DynamicText_mf',
-                'DynamicText_mp', 'DynamicText_sf', 'Fingering_0', 'Fingering_1', 'Fingering_2', 'Fingering_3',
-                'Fingering_4', 'Fingering_5', 'Flag_flags.d5', 'Flag_flags.u4', 'Flag_flags.u5', 'None_Class',
-                'Rest_[Duration 1 ]', 'Script_-1accent', 'Script_-1marcato', 'Script_-1staccato', 'Script_-1tenuto',
-                'Script_1accent', 'Script_1fermata', 'Script_1marcato', 'Script_1staccatissimo', 'Script_1staccato',
-                'Script_1tenuto', 'Script_1trill', 'TimeSignature_ 128', 'TimeSignature_ 22', 'TimeSignature_ 24',
-                'TimeSignature_ 34', 'TimeSignature_ 54', 'TimeSignature_ 64', 'TimeSignature_ 68',
-                'Clef_clefs.percussion at 0', 'Art_Accidental_in_key_-1f2', 'Art_Accidental_in_key_0',
-                'Art_Accidental_in_key_1f2', 'Art_NoteHead_Black', 'Art_NoteHead_Full', 'Art_NoteHead_Half',
-                'Art_Rest_[Duration 2 ]', 'Art_Rest_[Duration 4 ]', 'Art_Rest_[Duration 8 ]', 'Art_Rest_[Duration 16 ]',
-                'Art_Rest_[Duration 32 ]', 'Art_Rest_[Duration 64 ]', 'Art_Rest_[Duration 128 ]',
-                'Art_Rest_[Duration 1 ]','Stem_')
+    self._classes = list(pa.read_csv(self._devkit_path + "/DeepScores_classification/class_names.csv", header=None)[1])
 
     self._class_to_ind = dict(list(zip(self.classes, list(range(self.num_classes)))))
     self._image_ext = '.png'
@@ -88,20 +80,25 @@ class musical(imdb):
     Load the indexes listed in this dataset's image set file.
     """
     # Example path to image set file:
-    # self._devkit_path + /VOCdevkit2007/VOC2007/ImageSets/Main/val.txt
-    image_set_file = os.path.join(self._data_path, 'ImageSets', 'Main',
-                                  self._image_set + '.txt')
-    assert os.path.exists(image_set_file), \
-      'Path does not exist: {}'.format(image_set_file)
-    with open(image_set_file) as f:
-      image_index = [x.strip() for x in f.readlines()]
+    # image_set_file =  os.path.join(self._devkit_path, "VOCdevkit2007/VOC2007/ImageSets/Main/val.txt")
+    images_path = os.path.join(self._data_path, 'images_png')
+    assert os.path.exists(images_path), \
+      'Path does not exist: {}'.format(images_path)
+
+    images = os.listdir(images_path)
+
+    if max_images is not None:
+        images = images[0:max_images]
+
+    #images = images[0:200]
+    image_index = [x[:-4] for x in images]
     return image_index
 
   def _get_default_path(self):
     """
     Return the default path where PASCAL VOC is expected to be installed.
     """
-    return os.path.join(cfg.DATA_DIR, 'Musicaldevkit' + self._year)
+    return os.path.join(cfg.DATA_DIR, 'DeepScores_' + self._year)
 
   def gt_roidb(self):
     """
@@ -151,7 +148,7 @@ class musical(imdb):
     Load image and bounding boxes info from XML file in the PASCAL VOC
     format.
     """
-    filename = os.path.join(self._data_path, 'Annotations', index + '.xml')
+    filename = os.path.join(self._data_path, 'xml_annotations', index + '.xml')
     tree = ET.parse(filename)
     objs = tree.findall('object')
     num_objs = len(objs)
@@ -299,8 +296,7 @@ class musical(imdb):
 
 
 if __name__ == '__main__':
-  from datasets.musical import musical
 
-  d = musical('trainval', '2007')
+  d = deep_scores('trainval', '2017')
   res = d.roidb
 
